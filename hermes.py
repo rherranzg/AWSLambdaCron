@@ -3,7 +3,6 @@ from urllib2 import urlopen
 import boto3
 import re
 
-REGION = "eu-west-1"
 t = datetime.now()
 DEBUG = True
 
@@ -86,9 +85,8 @@ def cronEC2Exec(cron, instance, action):
     '''
     Function to control operations on EC2 instances
     '''
-
     if DEBUG:   print "> {2}. Current date is {0} and cron expression is {1}".format(t, cron, action)
-    if cron is None:
+    if cron == "":
         print "Empty cron expression!"
         return True
     
@@ -119,7 +117,7 @@ def cronAMIExec(cron, ami, action):
     Function to control operations on AMIs
     '''
     if DEBUG:   print "[cronAMIExec] > {2}. Current date is {0} and cron expression is {1}".format(t, cron, action)
-    if cron is None:
+    if cron == "":
         print "Empty cron expression!"
         return True
     
@@ -137,7 +135,7 @@ def cronEBSExec(cron, ebs, action):
     Function to control operations on EBSs
     '''
     if DEBUG:   print "[cronEBSExec] > {2}. Current date is {0} and cron expression is {1}".format(t, cron, action)
-    if cron is None:
+    if cron == "":
         print "Empty cron expression!"
         return True
         
@@ -156,7 +154,7 @@ def cronSnapExec(cron, snap, action):
     Function to control operations on Snapshots
     '''
     if DEBUG:   print "[cronSnapExec] > {2}. Current date is {0} and cron expression is {1}".format(t, cron, action)
-    if cron is None:
+    if cron == "":
         print "Empty cron expression!"
         return True
     
@@ -178,15 +176,15 @@ def checkEC2(ec2):
         #print "> Instance {0} is {1}".format(i.id, i.state["Name"])
         if i.tags:
             for tag in i.tags:
-                if tag['Key'] == "startInstance" and tag['Value'] is not None:
+                if tag['Key'] == "startInstance":
                     if DEBUG:   print ">> Found an 'startInstance' tag on instance {}...".format(i.id)
                     cronEC2Exec(tag['Value'], i, "start")
             
-                if  tag['Key'] == "stopInstance" and tag['Value'] is not None:
+                if tag['Key'] == "stopInstance":
                     if DEBUG:   print ">> Found an 'stopInstance' tag on instance {}...".format(i.id)
                     cronEC2Exec(tag['Value'], i, "stop")
                     
-                if  tag['Key'] == "createAmi":
+                if tag['Key'] == "createAmi":
                     if DEBUG:   print ">> Found an 'createAmi' tag on instance {}...".format(i.id)
                     cronEC2Exec(tag['Value'], i, "createAmi")
 
@@ -198,16 +196,15 @@ def checkAMIs():
     '''
     
     amis = ec2_client.describe_images(Filters=[ { 'Name': 'tag-key', 'Values': [ "deleteAmi" ] } ])
-    if amis is None:
-        return True
-        
-    for ami in amis["Images"]:
-        if DEBUG:   print "[checkAMIs] La AMI {0} tiene los tags {1}".format(ami["ImageId"], ami["Tags"])
-            
-        for tag in ami["Tags"]:
-            if tag['Key'] == "deleteAmi":
-                cronAMIExec(tag['Value'], ami["ImageId"], "delete")
+    if amis is not None:
+        for ami in amis["Images"]:
+            if DEBUG:   print "[checkAMIs] La AMI {0} tiene los tags {1}".format(ami["ImageId"], ami["Tags"])
 
+            for tag in ami["Tags"]:
+                if tag['Key'] == "deleteAmi":
+                    cronAMIExec(tag['Value'], ami["ImageId"], "delete")
+
+    return True
 
 def checkEBS(ec2):
     '''
@@ -219,25 +216,25 @@ def checkEBS(ec2):
 
         if ebs.tags:
             for tag in ebs.tags:
-                if tag['Key'] == "createSnapshot" and tag['Value'] is not None:
+                if tag['Key'] == "createSnapshot":
                     if DEBUG:   print ">> Found a 'createSnapshot' tag with value {}".format(tag['Value'])
                     cronEBSExec(tag['Value'], ebs, "createSnapshot")
-    
+
+    return True
+
 def checkSnapshots():
     '''
     Function which lists snapshots, for example, to perform deletions
     '''
     
     snaps = ec2_client.describe_snapshots(Filters=[ { 'Name': 'tag-key', 'Values': [ "deleteSnapshot" ] } ])
-    if snaps is None:
-        return True
-        
-    for snap in snaps["Snapshots"]:
-        if DEBUG:   print "[checkSnapshots] El snap {0} tiene los tags {1}".format(snap["SnapshotId"], snap["Tags"])
-            
-        for tag in snap["Tags"]:
-            if tag['Key'] == "deleteSnapshot":
-                cronSnapExec(tag['Value'], snap["SnapshotId"], "delete")
+    if snaps is not None:
+        for snap in snaps["Snapshots"]:
+            if DEBUG:   print "[checkSnapshots] El snap {0} tiene los tags {1}".format(snap["SnapshotId"], snap["Tags"])
+
+            for tag in snap["Tags"]:
+                if tag['Key'] == "deleteSnapshot":
+                    cronSnapExec(tag['Value'], snap["SnapshotId"], "delete")
 
     return True
 
